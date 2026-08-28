@@ -95,9 +95,7 @@ class MainActivity : Activity() {
                 0xFFFF0000.toInt()
             }
 
-            // CORREZIONE CRASH: Inseriamo un ritardo di 300ms prima di avviare il servizio.
-            // Questo permette ad Android 14 di registrare internamente il consenso alla cattura 
-            // prima che avvenga il controllo di sicurezza di startForegroundService.
+            // Avviamo il servizio in primo piano con 500ms di ritardo per sicurezza su Xiaomi
             Handler(Looper.getMainLooper()).postDelayed({
                 val serviceIntent = Intent(this, MediaCaptureService::class.java).apply {
                     putExtra("RESULT_CODE", resultCode)
@@ -112,13 +110,13 @@ class MainActivity : Activity() {
                     startService(serviceIntent)
                 }
 
-                ClickLoopManager.instance.showTarget(this)
+                // Lasciamo che sia il ClickLoopManager a mostrare il mirino dopo 1 secondo per sicurezza
                 val btnToggleTarget = findViewById<Button>(R.id.btnToggleTarget)
                 btnToggleTarget.text = "Nascondi Mirino Target"
                 isTargetVisible = true
                 
                 Toast.makeText(this, "Controllo avviato ogni $seconds secondi", Toast.LENGTH_SHORT).show()
-            }, 300)
+            }, 500)
         } else {
             Toast.makeText(this, "Permesso negato", Toast.LENGTH_SHORT).show()
         }
