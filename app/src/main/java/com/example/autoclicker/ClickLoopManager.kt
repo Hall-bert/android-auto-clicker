@@ -57,9 +57,6 @@ class ClickLoopManager {
         hideTarget()
 
         appContext = context.applicationContext
-
-        // CORREZIONE XIAOMI: Usiamo il contesto del Servizio di Accessibilità (ClickService) 
-        // se attivo, per impedire al sistema di nascondere l'overlay durante la cattura schermo.
         val targetContext = ClickService.instance ?: appContext!!
         windowManager = targetContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -191,6 +188,11 @@ class ClickLoopManager {
 
         isRunning = true
         handler.post(checkTask)
+
+        // NUOVO: Mostriamo il mirino con 1 secondo di ritardo per attendere che il pop-up sia del tutto chiuso
+        handler.postDelayed({
+            showTarget(context)
+        }, 1000)
     }
 
     fun stopLoop() {
