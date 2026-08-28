@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Configurazione Clicker"
+        android:text="AutoClicker Intelligente"
         android:textSize="20sp"
         android:textStyle="bold"
         android:layout_marginBottom="24dp"/>
@@ -19,7 +19,25 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Secondi tra controlli (es. 5)"
+        android:text="5"
         android:inputType="number"
+        android:layout_marginBottom="12dp"/>
+
+    <EditText
+        android:id="@+id/editColor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Colore in HEX (es. FF0000 per Rosso)"
+        android:text="FF0000"
+        android:inputType="text"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- NUOVO: Bottone per mostrare/nascondere il mirino trascinabile -->
+    <Button
+        android:id="@+id/btnToggleTarget"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Mostra Mirino Target"
         android:layout_marginBottom="16dp"/>
 
     <Button
