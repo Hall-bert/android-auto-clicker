@@ -19,6 +19,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 
 class ClickLoopManager {
 
@@ -37,6 +38,8 @@ class ClickLoopManager {
 
     private var currentTargetX: Int = -1
     private var currentTargetY: Int = -1
+    private var density: Float = 1f
+    private var appContext: Context? = null
 
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
@@ -53,10 +56,10 @@ class ClickLoopManager {
     fun showTarget(context: Context) {
         hideTarget()
 
-        val appContext = context.applicationContext
-        windowManager = appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        appContext = context.applicationContext
+        windowManager = appContext!!.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        val density = appContext.resources.displayMetrics.density
+        density = appContext!!.resources.displayMetrics.density
         val viewSize = (40 * density).toInt()
 
         targetView = View(appContext).apply {
@@ -74,8 +77,7 @@ class ClickLoopManager {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
-        // Recupera la posizione precedentemente salvata sul telefono
-        val prefs = appContext.getSharedPreferences("autoclicker_prefs", Context.MODE_PRIVATE)
+        val prefs = appContext!!.getSharedPreferences("autoclicker_prefs", Context.MODE_PRIVATE)
         if (currentTargetX == -1 || currentTargetY == -1) {
             currentTargetX = prefs.getInt("target_x", -1)
             currentTargetY = prefs.getInt("target_y", -1)
@@ -89,9 +91,8 @@ class ClickLoopManager {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.LEFT
-            // Se non ci sono coordinate salvate, posiziona al centro dello schermo
-            x = if (currentTargetX != -1) currentTargetX - viewSize / 2 else appContext.resources.displayMetrics.widthPixels / 2 - viewSize / 2
-            y = if (currentTargetY != -1) currentTargetY - viewSize / 2 else appContext.resources.displayMetrics.heightPixels / 2 - viewSize / 2
+            x = if (currentTargetX != -1) currentTargetX - viewSize / 2 else appContext!!.resources.displayMetrics.widthPixels / 2 - viewSize / 2
+            y = if (currentTargetY != -1) currentTargetY - viewSize / 2 else appContext!!.resources.displayMetrics.heightPixels / 2 - viewSize / 2
         }
 
         if (currentTargetX == -1 || currentTargetY == -1) {
@@ -118,7 +119,7 @@ class ClickLoopManager {
                     p.x = initialX + (event.rawX - initialTouchX).toInt()
                     p.y = initialY + (event.rawY - initialTouchY).toInt()
 
-                    val metrics = appContext.resources.displayMetrics
+                    val metrics = appContext!!.resources.displayMetrics
                     if (p.x < 0) p.x = 0
                     if (p.y < 0) p.y = 0
                     if (p.x > metrics.widthPixels - viewSize) p.x = metrics.widthPixels - viewSize
@@ -131,8 +132,7 @@ class ClickLoopManager {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    // Salva in modo permanente la posizione quando si rilascia il mirino
-                    val savePrefs = appContext.getSharedPreferences("autoclicker_prefs", Context.MODE_PRIVATE)
+                    val savePrefs = appContext!!.getSharedPreferences("autoclicker_prefs", Context.MODE_PRIVATE)
                     savePrefs.edit()
                         .putInt("target_x", currentTargetX)
                         .putInt("target_y", currentTargetY)
@@ -161,6 +161,7 @@ class ClickLoopManager {
     fun startLoop(context: Context, seconds: Int, color: Int, resultCode: Int, data: Intent) {
         intervalMillis = seconds * 1000L
         targetColor = color
+        appContext = context.applicationContext
         if (isRunning) return
 
         val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -202,6 +203,7 @@ class ClickLoopManager {
     private fun eseguiCatturaEAnalisi() {
         val reader = imageReader ?: return
         val image = reader.acquireLatestImage() ?: return
+        val context = appContext ?: return
         try {
             val planes = image.planes
             val buffer = planes[0].buffer
@@ -216,9 +218,8 @@ class ClickLoopManager {
             )
             rawBitmap.copyPixelsFromBuffer(buffer)
 
-            // CORREZIONE: Ritagliamo l'immagine eliminando i pixel di allineamento della GPU
             val bitmap = Bitmap.createBitmap(rawBitmap, 0, 0, image.width, image.height)
-            rawBitmap.recycle() // Libera la memoria della bitmap grezza
+            rawBitmap.recycle()
 
             val targetX = if (currentTargetX in 0 until bitmap.width) currentTargetX else bitmap.width / 2
             val targetY = if (currentTargetY in 0 until bitmap.height) currentTargetY else bitmap.height / 2
@@ -228,6 +229,16 @@ class ClickLoopManager {
             val redDetected = Color.red(pixelColor)
             val greenDetected = Color.green(pixelColor)
             val blueDetected = Color.blue(pixelColor)
+
+            // AGGIORNAMENTO DIAGNOSTICO: Il mirino cambia colore in base a ciò che rileva sotto di esso
+            val backgroundDrawable = targetView?.background as? GradientDrawable
+            if (backgroundDrawable != null) {
+                backgroundDrawable.setColor(Color.argb(180, redDetected, greenDetected, blueDetected))
+                // Bordo a contrasto (nero per colori chiari, bianco per colori scuri)
+                val border = if ((redDetected + greenDetected + blueDetected) > 380) Color.BLACK else Color.WHITE
+                backgroundDrawable.setStroke((3 * density).toInt(), border)
+                targetView?.invalidate()
+            }
 
             val redTarget = Color.red(targetColor)
             val greenTarget = Color.green(targetColor)
@@ -239,7 +250,17 @@ class ClickLoopManager {
             val blueDiff = Math.abs(blueDetected - blueTarget)
 
             if (redDiff < tolerance && greenDiff < tolerance && blueDiff < tolerance) {
-                ClickService.instance?.clickAt(targetX.toFloat(), targetY.toFloat())
+                val clickService = ClickService.instance
+                if (clickService != null) {
+                    clickService.clickAt(targetX.toFloat(), targetY.toFloat())
+                    handler.post {
+                        Toast.makeText(context, "Colore rilevato! Clic inviato.", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    handler.post {
+                        Toast.makeText(context, "Colore rilevato, ma il Servizio di Accessibilità è SPENTO!", Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
