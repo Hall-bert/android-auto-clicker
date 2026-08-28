@@ -8,6 +8,8 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
@@ -93,26 +95,30 @@ class MainActivity : Activity() {
                 0xFFFF0000.toInt()
             }
 
-            // Inviamo le informazioni necessarie al servizio in primo piano
-            val serviceIntent = Intent(this, MediaCaptureService::class.java).apply {
-                putExtra("RESULT_CODE", resultCode)
-                putExtra("DATA_INTENT", data)
-                putExtra("SECONDS", seconds)
-                putExtra("COLOR", targetColor)
-            }
+            // CORREZIONE CRASH: Inseriamo un ritardo di 300ms prima di avviare il servizio.
+            // Questo permette ad Android 14 di registrare internamente il consenso alla cattura 
+            // prima che avvenga il controllo di sicurezza di startForegroundService.
+            Handler(Looper.getMainLooper()).postDelayed({
+                val serviceIntent = Intent(this, MediaCaptureService::class.java).apply {
+                    putExtra("RESULT_CODE", resultCode)
+                    putExtra("DATA_INTENT", data)
+                    putExtra("SECONDS", seconds)
+                    putExtra("COLOR", targetColor)
+                }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
-            } else {
-                startService(serviceIntent)
-            }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent)
+                } else {
+                    startService(serviceIntent)
+                }
 
-            ClickLoopManager.instance.showTarget(this)
-            val btnToggleTarget = findViewById<Button>(R.id.btnToggleTarget)
-            btnToggleTarget.text = "Nascondi Mirino Target"
-            isTargetVisible = true
-            
-            Toast.makeText(this, "Controllo avviato ogni $seconds secondi", Toast.LENGTH_SHORT).show()
+                ClickLoopManager.instance.showTarget(this)
+                val btnToggleTarget = findViewById<Button>(R.id.btnToggleTarget)
+                btnToggleTarget.text = "Nascondi Mirino Target"
+                isTargetVisible = true
+                
+                Toast.makeText(this, "Controllo avviato ogni $seconds secondi", Toast.LENGTH_SHORT).show()
+            }, 300)
         } else {
             Toast.makeText(this, "Permesso negato", Toast.LENGTH_SHORT).show()
         }
