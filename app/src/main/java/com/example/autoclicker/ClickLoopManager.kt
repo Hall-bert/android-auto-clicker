@@ -31,7 +31,6 @@ class ClickLoopManager {
     private var targetView: View? = null
     private var params: WindowManager.LayoutParams? = null
 
-    // Coordinate del centro del mirino galleggiante
     private var currentTargetX: Int = -1
     private var currentTargetY: Int = -1
 
@@ -48,19 +47,19 @@ class ClickLoopManager {
     }
 
     fun showTarget(context: Context) {
-        if (targetView != null) return
+        // Chiude e pulisce l'eventuale mirino precedente rimasto nascosto o bloccato
+        hideTarget()
 
         windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // Crea graficamente un cerchio rosso semi-trasparente con bordo rosso
         val density = context.resources.displayMetrics.density
         val viewSize = (40 * density).toInt()
 
         targetView = View(context).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(Color.argb(100, 255, 0, 0)) // Rosso semi-trasparente
-                setStroke((3 * density).toInt(), Color.RED) // Bordo rosso marcato
+                setColor(Color.argb(100, 255, 0, 0))
+                setStroke((3 * density).toInt(), Color.RED)
             }
         }
 
@@ -79,14 +78,15 @@ class ClickLoopManager {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.LEFT
-            // Posizione iniziale: centro geometrico dello schermo
-            x = context.resources.displayMetrics.widthPixels / 2 - viewSize / 2
-            y = context.resources.displayMetrics.heightPixels / 2 - viewSize / 2
+            // Ripristina l'ultima coordinata nota se disponibile, altrimenti va al centro dello schermo
+            x = if (currentTargetX != -1) currentTargetX - viewSize / 2 else context.resources.displayMetrics.widthPixels / 2 - viewSize / 2
+            y = if (currentTargetY != -1) currentTargetY - viewSize / 2 else context.resources.displayMetrics.heightPixels / 2 - viewSize / 2
         }
 
-        // Calcola la coordinata iniziale
-        currentTargetX = params!!.x + viewSize / 2
-        currentTargetY = params!!.y + viewSize / 2
+        if (currentTargetX == -1 || currentTargetY == -1) {
+            currentTargetX = params!!.x + viewSize / 2
+            currentTargetY = params!!.y + viewSize / 2
+        }
 
         var initialX = 0
         var initialY = 0
@@ -107,7 +107,6 @@ class ClickLoopManager {
                     p.x = initialX + (event.rawX - initialTouchX).toInt()
                     p.y = initialY + (event.rawY - initialTouchY).toInt()
 
-                    // Impedisce al mirino di uscire dai limiti fisici dello schermo
                     val metrics = context.resources.displayMetrics
                     if (p.x < 0) p.x = 0
                     if (p.y < 0) p.y = 0
@@ -116,7 +115,6 @@ class ClickLoopManager {
 
                     windowManager?.updateViewLayout(targetView, p)
 
-                    // Aggiorna dinamicamente la coordinata reale basandoti sul centro del mirino
                     currentTargetX = p.x + viewSize / 2
                     currentTargetY = p.y + viewSize / 2
                     true
@@ -130,7 +128,11 @@ class ClickLoopManager {
 
     fun hideTarget() {
         if (targetView != null) {
-            windowManager?.removeView(targetView)
+            try {
+                windowManager?.removeView(targetView)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             targetView = null
             windowManager = null
         }
@@ -194,7 +196,6 @@ class ClickLoopManager {
             )
             bitmap.copyPixelsFromBuffer(buffer)
 
-            // Legge la coordinata corrente del mirino. Se il mirino non è stato mai aperto, usa il centro schermo.
             val targetX = if (currentTargetX in 0 until bitmap.width) currentTargetX else bitmap.width / 2
             val targetY = if (currentTargetY in 0 until bitmap.height) currentTargetY else bitmap.height / 2
 
@@ -208,7 +209,7 @@ class ClickLoopManager {
             val greenTarget = Color.green(targetColor)
             val blueTarget = Color.blue(targetColor)
 
-            val tolerance = 25
+            val tolerance = 50
             val redDiff = Math.abs(redDetected - redTarget)
             val greenDiff = Math.abs(greenDetected - greenTarget)
             val blueDiff = Math.abs(blueDetected - blueTarget)
