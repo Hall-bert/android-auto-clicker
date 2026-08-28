@@ -3,9 +3,6 @@
     package="com.example.autoclicker">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <!-- NUOVO: Permesso obbligatorio per la cattura su Android 14+ -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
 
     <application
         android:allowBackup="true"
@@ -33,11 +30,5 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
-
-        <!-- NUOVO: Registrazione del servizio di cattura -->
-        <service
-            android:name=".MediaCaptureService"
-            android:foregroundServiceType="mediaProjection"
-            android:exported="false" />
     </application>
 </manifest>
