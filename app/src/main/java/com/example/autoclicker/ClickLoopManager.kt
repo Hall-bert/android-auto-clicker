@@ -57,6 +57,7 @@ class ClickLoopManager {
         hideTarget()
 
         appContext = context.applicationContext
+        val isAccessibilityActive = ClickService.instance != null
         val targetContext = ClickService.instance ?: appContext!!
         windowManager = targetContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -71,11 +72,16 @@ class ClickLoopManager {
             }
         }
 
-        val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        // Se usiamo il servizio di accessibilità, il tipo di finestra DEVE essere TYPE_ACCESSIBILITY_OVERLAY
+        val layoutType = if (isAccessibilityActive) {
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         } else {
-            @Suppress("DEPRECATION")
-            WindowManager.LayoutParams.TYPE_PHONE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
         }
 
         val prefs = appContext!!.getSharedPreferences("autoclicker_prefs", Context.MODE_PRIVATE)
@@ -88,7 +94,9 @@ class ClickLoopManager {
             viewSize,
             viewSize,
             layoutType,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or 
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_SECURE, // Rende il mirino invisibile agli screenshot (così l'app legge lo sfondo vero!)
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.LEFT
@@ -188,6 +196,11 @@ class ClickLoopManager {
 
         isRunning = true
         handler.post(checkTask)
+
+        // Mostriamo il mirino in modo ritardato (1 secondo) per permettere al pop-up di chiudersi del tutto
+        handler.postDelayed({
+            showTarget(context)
+        }, 1000)
     }
 
     fun stopLoop() {
