@@ -74,6 +74,13 @@ class ClickLoopManager {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
+        // Recupera la posizione precedentemente salvata sul telefono
+        val prefs = appContext.getSharedPreferences("autoclicker_prefs", Context.MODE_PRIVATE)
+        if (currentTargetX == -1 || currentTargetY == -1) {
+            currentTargetX = prefs.getInt("target_x", -1)
+            currentTargetY = prefs.getInt("target_y", -1)
+        }
+
         params = WindowManager.LayoutParams(
             viewSize,
             viewSize,
@@ -82,6 +89,7 @@ class ClickLoopManager {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.LEFT
+            // Se non ci sono coordinate salvate, posiziona al centro dello schermo
             x = if (currentTargetX != -1) currentTargetX - viewSize / 2 else appContext.resources.displayMetrics.widthPixels / 2 - viewSize / 2
             y = if (currentTargetY != -1) currentTargetY - viewSize / 2 else appContext.resources.displayMetrics.heightPixels / 2 - viewSize / 2
         }
@@ -120,6 +128,15 @@ class ClickLoopManager {
 
                     currentTargetX = p.x + viewSize / 2
                     currentTargetY = p.y + viewSize / 2
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    // Salva in modo permanente la posizione quando si rilascia il mirino
+                    val savePrefs = appContext.getSharedPreferences("autoclicker_prefs", Context.MODE_PRIVATE)
+                    savePrefs.edit()
+                        .putInt("target_x", currentTargetX)
+                        .putInt("target_y", currentTargetY)
+                        .apply()
                     true
                 }
                 else -> false
@@ -192,12 +209,16 @@ class ClickLoopManager {
             val rowStride = planes[0].rowStride
             val rowPadding = rowStride - pixelStride * image.width
 
-            val bitmap = Bitmap.createBitmap(
+            val rawBitmap = Bitmap.createBitmap(
                 image.width + rowPadding / pixelStride,
                 image.height,
                 Bitmap.Config.ARGB_8888
             )
-            bitmap.copyPixelsFromBuffer(buffer)
+            rawBitmap.copyPixelsFromBuffer(buffer)
+
+            // CORREZIONE: Ritagliamo l'immagine eliminando i pixel di allineamento della GPU
+            val bitmap = Bitmap.createBitmap(rawBitmap, 0, 0, image.width, image.height)
+            rawBitmap.recycle() // Libera la memoria della bitmap grezza
 
             val targetX = if (currentTargetX in 0 until bitmap.width) currentTargetX else bitmap.width / 2
             val targetY = if (currentTargetY in 0 until bitmap.height) currentTargetY else bitmap.height / 2
