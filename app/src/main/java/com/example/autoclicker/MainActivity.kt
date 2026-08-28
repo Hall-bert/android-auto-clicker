@@ -61,6 +61,9 @@ class MainActivity : Activity() {
 
         btnStop.setOnClickListener {
             loopManager.stopLoop()
+            loopManager.hideTarget() // Nascondiamo il mirino solo quando l'utente clicca esplicitamente "Ferma"
+            btnToggleTarget.text = "Mostra Mirino Target"
+            isTargetVisible = false
             stopService(Intent(this, MediaCaptureService::class.java))
             Toast.makeText(this, "Controllo fermato", Toast.LENGTH_SHORT).show()
         }
@@ -91,7 +94,6 @@ class MainActivity : Activity() {
                 0xFFFF0000.toInt()
             }
 
-            // NUOVO: Avviamo il servizio in primo piano richiesto per MediaProjection su Android 14+
             val serviceIntent = Intent(this, MediaCaptureService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(serviceIntent)
@@ -110,10 +112,5 @@ class MainActivity : Activity() {
         } else {
             Toast.makeText(this, "Permesso negato", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        loopManager.hideTarget()
     }
 }
