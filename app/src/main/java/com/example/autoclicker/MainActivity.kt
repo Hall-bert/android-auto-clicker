@@ -51,7 +51,6 @@ class MainActivity : Activity() {
         }
 
         btnStart.setOnClickListener {
-            // Forziamo il sistema ad avviare la cattura solo ed esclusivamente per l'intero display
             val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 projectionManager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
             } else {
@@ -92,6 +91,13 @@ class MainActivity : Activity() {
             }
 
             loopManager.startLoop(this, seconds, targetColor, resultCode, data)
+            
+            // NUOVO: Ripristina forzatamente il mirino grafico dopo la chiusura del pop-up di Android
+            loopManager.showTarget(this)
+            val btnToggleTarget = findViewById<Button>(R.id.btnToggleTarget)
+            btnToggleTarget.text = "Nascondi Mirino Target"
+            isTargetVisible = true
+            
             Toast.makeText(this, "Controllo avviato ogni $seconds secondi", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, "Permesso negato", Toast.LENGTH_SHORT).show()
