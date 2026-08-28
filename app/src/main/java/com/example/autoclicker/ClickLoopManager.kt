@@ -3,15 +3,21 @@ package com.example.autoclicker
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 
 class ClickLoopManager {
@@ -19,6 +25,15 @@ class ClickLoopManager {
     private val handler = Handler(Looper.getMainLooper())
     private var isRunning = false
     private var intervalMillis: Long = 5000
+    private var targetColor: Int = Color.RED
+
+    private var windowManager: WindowManager? = null
+    private var targetView: View? = null
+    private var params: WindowManager.LayoutParams? = null
+
+    // Coordinate del centro del mirino galleggiante
+    private var currentTargetX: Int = -1
+    private var currentTargetY: Int = -1
 
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
@@ -32,8 +47,98 @@ class ClickLoopManager {
         }
     }
 
-    fun startLoop(context: Context, seconds: Int, resultCode: Int, data: Intent) {
+    fun showTarget(context: Context) {
+        if (targetView != null) return
+
+        windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+        // Crea graficamente un cerchio rosso semi-trasparente con bordo rosso
+        val density = context.resources.displayMetrics.density
+        val viewSize = (40 * density).toInt()
+
+        targetView = View(context).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(100, 255, 0, 0)) // Rosso semi-trasparente
+                setStroke((3 * density).toInt(), Color.RED) // Bordo rosso marcato
+            }
+        }
+
+        val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+
+        params = WindowManager.LayoutParams(
+            viewSize,
+            viewSize,
+            layoutType,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.LEFT
+            // Posizione iniziale: centro geometrico dello schermo
+            x = context.resources.displayMetrics.widthPixels / 2 - viewSize / 2
+            y = context.resources.displayMetrics.heightPixels / 2 - viewSize / 2
+        }
+
+        // Calcola la coordinata iniziale
+        currentTargetX = params!!.x + viewSize / 2
+        currentTargetY = params!!.y + viewSize / 2
+
+        var initialX = 0
+        var initialY = 0
+        var initialTouchX = 0f
+        var initialTouchY = 0f
+
+        targetView?.setOnTouchListener { v, event ->
+            val p = params ?: return@setOnTouchListener false
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = p.x
+                    initialY = p.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    p.x = initialX + (event.rawX - initialTouchX).toInt()
+                    p.y = initialY + (event.rawY - initialTouchY).toInt()
+
+                    // Impedisce al mirino di uscire dai limiti fisici dello schermo
+                    val metrics = context.resources.displayMetrics
+                    if (p.x < 0) p.x = 0
+                    if (p.y < 0) p.y = 0
+                    if (p.x > metrics.widthPixels - viewSize) p.x = metrics.widthPixels - viewSize
+                    if (p.y > metrics.heightPixels - viewSize) p.y = metrics.heightPixels - viewSize
+
+                    windowManager?.updateViewLayout(targetView, p)
+
+                    // Aggiorna dinamicamente la coordinata reale basandoti sul centro del mirino
+                    currentTargetX = p.x + viewSize / 2
+                    currentTargetY = p.y + viewSize / 2
+                    true
+                }
+                else -> false
+            }
+        }
+
+        windowManager?.addView(targetView, params)
+    }
+
+    fun hideTarget() {
+        if (targetView != null) {
+            windowManager?.removeView(targetView)
+            targetView = null
+            windowManager = null
+        }
+    }
+
+    fun startLoop(context: Context, seconds: Int, color: Int, resultCode: Int, data: Intent) {
         intervalMillis = seconds * 1000L
+        targetColor = color
         if (isRunning) return
 
         val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -89,18 +194,26 @@ class ClickLoopManager {
             )
             bitmap.copyPixelsFromBuffer(buffer)
 
-            // Controlla il pixel al centro esatto dello schermo
-            val targetX = bitmap.width / 2
-            val targetY = bitmap.height / 2
+            // Legge la coordinata corrente del mirino. Se il mirino non è stato mai aperto, usa il centro schermo.
+            val targetX = if (currentTargetX in 0 until bitmap.width) currentTargetX else bitmap.width / 2
+            val targetY = if (currentTargetY in 0 until bitmap.height) currentTargetY else bitmap.height / 2
+
             val pixelColor = bitmap.getPixel(targetX, targetY)
 
-            // Estrae i valori RGB del pixel
-            val red = (pixelColor shr 16) and 0xFF
-            val green = (pixelColor shr 8) and 0xFF
-            val blue = pixelColor and 0xFF
+            val redDetected = Color.red(pixelColor)
+            val greenDetected = Color.green(pixelColor)
+            val blueDetected = Color.blue(pixelColor)
 
-            // Se il colore rilevato è prevalentemente rosso (R > 200, G < 80, B < 80)
-            if (red > 200 && green < 80 && blue < 80) {
+            val redTarget = Color.red(targetColor)
+            val greenTarget = Color.green(targetColor)
+            val blueTarget = Color.blue(targetColor)
+
+            val tolerance = 25
+            val redDiff = Math.abs(redDetected - redTarget)
+            val greenDiff = Math.abs(greenDetected - greenTarget)
+            val blueDiff = Math.abs(blueDetected - blueTarget)
+
+            if (redDiff < tolerance && greenDiff < tolerance && blueDiff < tolerance) {
                 ClickService.instance?.clickAt(targetX.toFloat(), targetY.toFloat())
             }
         } catch (e: Exception) {
