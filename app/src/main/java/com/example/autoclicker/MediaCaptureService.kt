@@ -1,5 +1,6 @@
 package com.example.autoclicker
 
+import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -49,7 +50,7 @@ class MediaCaptureService : Service() {
 
         // 2. Recuperiamo i dati e avviamo il loop in sicurezza dal contesto del servizio attivo
         if (intent != null) {
-            val resultCode = intent.getIntExtra("RESULT_CODE", -1)
+            val resultCode = intent.getIntExtra("RESULT_CODE", 0)
             val dataIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra("DATA_INTENT", Intent::class.java)
             } else {
@@ -59,7 +60,8 @@ class MediaCaptureService : Service() {
             val seconds = intent.getIntExtra("SECONDS", 5)
             val color = intent.getIntExtra("COLOR", 0xFFFF0000.toInt())
 
-            if (resultCode != -1 && dataIntent != null) {
+            // CORREZIONE: Avvia la cattura se resultCode è uguale ad Activity.RESULT_OK (ovvero -1)
+            if (resultCode == Activity.RESULT_OK && dataIntent != null) {
                 ClickLoopManager.instance.startLoop(this, seconds, color, resultCode, dataIntent)
             }
         }
