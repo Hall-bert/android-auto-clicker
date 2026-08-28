@@ -18,7 +18,6 @@ class MainActivity : Activity() {
     private val REQUEST_CODE_SCREEN_CAPTURE = 1001
     private val REQUEST_CODE_OVERLAY = 1002
     private lateinit var projectionManager: MediaProjectionManager
-    private val loopManager = ClickLoopManager()
     private var isTargetVisible = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,7 +33,7 @@ class MainActivity : Activity() {
 
         btnToggleTarget.setOnClickListener {
             if (isTargetVisible) {
-                loopManager.hideTarget()
+                ClickLoopManager.instance.hideTarget()
                 btnToggleTarget.text = "Mostra Mirino Target"
                 isTargetVisible = false
             } else {
@@ -43,7 +42,7 @@ class MainActivity : Activity() {
                     val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
                     startActivityForResult(intent, REQUEST_CODE_OVERLAY)
                 } else {
-                    loopManager.showTarget(this)
+                    ClickLoopManager.instance.showTarget(this)
                     btnToggleTarget.text = "Nascondi Mirino Target"
                     isTargetVisible = true
                 }
@@ -60,8 +59,8 @@ class MainActivity : Activity() {
         }
 
         btnStop.setOnClickListener {
-            loopManager.stopLoop()
-            loopManager.hideTarget() // Nascondiamo il mirino solo quando l'utente clicca esplicitamente "Ferma"
+            ClickLoopManager.instance.stopLoop()
+            ClickLoopManager.instance.hideTarget()
             btnToggleTarget.text = "Mostra Mirino Target"
             isTargetVisible = false
             stopService(Intent(this, MediaCaptureService::class.java))
@@ -73,7 +72,7 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_CODE_OVERLAY) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Settings.canDrawOverlays(this)) {
-                loopManager.showTarget(this)
+                ClickLoopManager.instance.showTarget(this)
                 val btnToggleTarget = findViewById<Button>(R.id.btnToggleTarget)
                 btnToggleTarget.text = "Nascondi Mirino Target"
                 isTargetVisible = true
@@ -94,16 +93,21 @@ class MainActivity : Activity() {
                 0xFFFF0000.toInt()
             }
 
-            val serviceIntent = Intent(this, MediaCaptureService::class.java)
+            // Inviamo le informazioni necessarie al servizio in primo piano
+            val serviceIntent = Intent(this, MediaCaptureService::class.java).apply {
+                putExtra("RESULT_CODE", resultCode)
+                putExtra("DATA_INTENT", data)
+                putExtra("SECONDS", seconds)
+                putExtra("COLOR", targetColor)
+            }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(serviceIntent)
             } else {
                 startService(serviceIntent)
             }
 
-            loopManager.startLoop(this, seconds, targetColor, resultCode, data)
-            
-            loopManager.showTarget(this)
+            ClickLoopManager.instance.showTarget(this)
             val btnToggleTarget = findViewById<Button>(R.id.btnToggleTarget)
             btnToggleTarget.text = "Nascondi Mirino Target"
             isTargetVisible = true
