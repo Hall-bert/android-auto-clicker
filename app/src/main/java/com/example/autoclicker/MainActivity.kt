@@ -8,9 +8,8 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     private val REQUEST_CODE_SCREEN_CAPTURE = 1001
     private lateinit var projectionManager: MediaProjectionManager
