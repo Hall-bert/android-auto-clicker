@@ -57,12 +57,16 @@ class ClickLoopManager {
         hideTarget()
 
         appContext = context.applicationContext
-        windowManager = appContext!!.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        density = appContext!!.resources.displayMetrics.density
+        // CORREZIONE XIAOMI: Usiamo il contesto del Servizio di Accessibilità (ClickService) 
+        // se attivo, per impedire al sistema di nascondere l'overlay durante la cattura schermo.
+        val targetContext = ClickService.instance ?: appContext!!
+        windowManager = targetContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+        density = targetContext.resources.displayMetrics.density
         val viewSize = (40 * density).toInt()
 
-        targetView = View(appContext).apply {
+        targetView = View(targetContext).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.argb(100, 255, 0, 0))
@@ -91,8 +95,8 @@ class ClickLoopManager {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.LEFT
-            x = if (currentTargetX != -1) currentTargetX - viewSize / 2 else appContext!!.resources.displayMetrics.widthPixels / 2 - viewSize / 2
-            y = if (currentTargetY != -1) currentTargetY - viewSize / 2 else appContext!!.resources.displayMetrics.heightPixels / 2 - viewSize / 2
+            x = if (currentTargetX != -1) currentTargetX - viewSize / 2 else targetContext.resources.displayMetrics.widthPixels / 2 - viewSize / 2
+            y = if (currentTargetY != -1) currentTargetY - viewSize / 2 else targetContext.resources.displayMetrics.heightPixels / 2 - viewSize / 2
         }
 
         if (currentTargetX == -1 || currentTargetY == -1) {
@@ -119,7 +123,7 @@ class ClickLoopManager {
                     p.x = initialX + (event.rawX - initialTouchX).toInt()
                     p.y = initialY + (event.rawY - initialTouchY).toInt()
 
-                    val metrics = appContext!!.resources.displayMetrics
+                    val metrics = targetContext.resources.displayMetrics
                     if (p.x < 0) p.x = 0
                     if (p.y < 0) p.y = 0
                     if (p.x > metrics.widthPixels - viewSize) p.x = metrics.widthPixels - viewSize
@@ -230,11 +234,9 @@ class ClickLoopManager {
             val greenDetected = Color.green(pixelColor)
             val blueDetected = Color.blue(pixelColor)
 
-            // AGGIORNAMENTO DIAGNOSTICO: Il mirino cambia colore in base a ciò che rileva sotto di esso
             val backgroundDrawable = targetView?.background as? GradientDrawable
             if (backgroundDrawable != null) {
                 backgroundDrawable.setColor(Color.argb(180, redDetected, greenDetected, blueDetected))
-                // Bordo a contrasto (nero per colori chiari, bianco per colori scuri)
                 val border = if ((redDetected + greenDetected + blueDetected) > 380) Color.BLACK else Color.WHITE
                 backgroundDrawable.setStroke((3 * density).toInt(), border)
                 targetView?.invalidate()
