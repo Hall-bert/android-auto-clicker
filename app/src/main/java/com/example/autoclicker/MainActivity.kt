@@ -3,6 +3,7 @@ package com.example.autoclicker
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -37,7 +38,6 @@ class MainActivity : Activity() {
                 btnToggleTarget.text = "Mostra Mirino Target"
                 isTargetVisible = false
             } else {
-                // Controlla se l'app ha il permesso di disegnare sopra altre app
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
                     Toast.makeText(this, "Abilita il permesso di disegno sopra altre app", Toast.LENGTH_LONG).show()
                     val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
@@ -51,7 +51,13 @@ class MainActivity : Activity() {
         }
 
         btnStart.setOnClickListener {
-            startActivityForResult(projectionManager.createScreenCaptureIntent(), REQUEST_CODE_SCREEN_CAPTURE)
+            // Forziamo il sistema ad avviare la cattura solo ed esclusivamente per l'intero display
+            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                projectionManager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+            } else {
+                projectionManager.createScreenCaptureIntent()
+            }
+            startActivityForResult(intent, REQUEST_CODE_SCREEN_CAPTURE)
         }
 
         btnStop.setOnClickListener {
