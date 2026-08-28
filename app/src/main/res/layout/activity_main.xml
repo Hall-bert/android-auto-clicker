@@ -27,12 +27,12 @@
         android:id="@+id/editColor"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Colore in HEX (es. FF0000 per Rosso)"
-        android:text="FF0000"
+        android:hint="Colore in HEX (es. FFFFFF per Bianco)"
+        android:text="FFFFFF"
         android:inputType="text"
         android:layout_marginBottom="16dp"/>
 
-    <!-- NUOVO: Bottone per mostrare/nascondere il mirino trascinabile -->
+    <!-- Bottone per mostrare/nascondere il mirino trascinabile -->
     <Button
         android:id="@+id/btnToggleTarget"
         android:layout_width="match_parent"
