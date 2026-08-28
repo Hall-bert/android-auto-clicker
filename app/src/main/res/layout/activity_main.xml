@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Configurazione Clicker"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp"/>
+
+    <EditText
+        android:id="@+id/editSeconds"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Secondi tra controlli (es. 5)"
+        android:inputType="number"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/btnStart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Avvia Controllo"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ferma Controllo"/>
+</LinearLayout>
