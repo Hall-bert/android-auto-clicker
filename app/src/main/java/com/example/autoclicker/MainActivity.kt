@@ -3,13 +3,10 @@ package com.example.autoclicker
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
@@ -52,12 +49,7 @@ class MainActivity : Activity() {
         }
 
         btnStart.setOnClickListener {
-            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                projectionManager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
-            } else {
-                projectionManager.createScreenCaptureIntent()
-            }
-            startActivityForResult(intent, REQUEST_CODE_SCREEN_CAPTURE)
+            startActivityForResult(projectionManager.createScreenCaptureIntent(), REQUEST_CODE_SCREEN_CAPTURE)
         }
 
         btnStop.setOnClickListener {
@@ -65,7 +57,6 @@ class MainActivity : Activity() {
             ClickLoopManager.instance.hideTarget()
             btnToggleTarget.text = "Mostra Mirino Target"
             isTargetVisible = false
-            stopService(Intent(this, MediaCaptureService::class.java))
             Toast.makeText(this, "Controllo fermato", Toast.LENGTH_SHORT).show()
         }
     }
@@ -95,28 +86,14 @@ class MainActivity : Activity() {
                 0xFFFF0000.toInt()
             }
 
-            // Avviamo il servizio in primo piano con 500ms di ritardo per sicurezza su Xiaomi
-            Handler(Looper.getMainLooper()).postDelayed({
-                val serviceIntent = Intent(this, MediaCaptureService::class.java).apply {
-                    putExtra("RESULT_CODE", resultCode)
-                    putExtra("DATA_INTENT", data)
-                    putExtra("SECONDS", seconds)
-                    putExtra("COLOR", targetColor)
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(serviceIntent)
-                } else {
-                    startService(serviceIntent)
-                }
-
-                // Lasciamo che sia il ClickLoopManager a mostrare il mirino dopo 1 secondo per sicurezza
-                val btnToggleTarget = findViewById<Button>(R.id.btnToggleTarget)
-                btnToggleTarget.text = "Nascondi Mirino Target"
-                isTargetVisible = true
-                
-                Toast.makeText(this, "Controllo avviato ogni $seconds secondi", Toast.LENGTH_SHORT).show()
-            }, 500)
+            ClickLoopManager.instance.startLoop(this, seconds, targetColor, resultCode, data)
+            ClickLoopManager.instance.showTarget(this)
+            
+            val btnToggleTarget = findViewById<Button>(R.id.btnToggleTarget)
+            btnToggleTarget.text = "Nascondi Mirino Target"
+            isTargetVisible = true
+            
+            Toast.makeText(this, "Controllo avviato ogni $seconds secondi", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, "Permesso negato", Toast.LENGTH_SHORT).show()
         }
