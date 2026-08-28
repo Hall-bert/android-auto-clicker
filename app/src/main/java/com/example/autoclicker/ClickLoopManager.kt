@@ -188,11 +188,6 @@ class ClickLoopManager {
 
         isRunning = true
         handler.post(checkTask)
-
-        // NUOVO: Mostriamo il mirino con 1 secondo di ritardo per attendere che il pop-up sia del tutto chiuso
-        handler.postDelayed({
-            showTarget(context)
-        }, 1000)
     }
 
     fun stopLoop() {
@@ -236,6 +231,7 @@ class ClickLoopManager {
             val greenDetected = Color.green(pixelColor)
             val blueDetected = Color.blue(pixelColor)
 
+            // AGGIORNAMENTO DIAGNOSTICO: Il mirino cambia colore in base al colore dello sfondo
             val backgroundDrawable = targetView?.background as? GradientDrawable
             if (backgroundDrawable != null) {
                 backgroundDrawable.setColor(Color.argb(180, redDetected, greenDetected, blueDetected))
